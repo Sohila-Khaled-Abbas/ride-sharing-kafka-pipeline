@@ -41,6 +41,7 @@ from src.config import (
     DISTANCE_RANGE,
     DRIVER_ID_RANGE,
     FARE_RANGE,
+    KAFKA_API_VERSION,
     PASSENGER_ID_RANGE,
     PRODUCE_INTERVAL_SEC,
     PRODUCER_MAX_IN_FLIGHT,
@@ -102,6 +103,7 @@ def create_producer() -> KafkaProducer:
     """
     return KafkaProducer(
         bootstrap_servers=BOOTSTRAP_SERVERS,
+        api_version=KAFKA_API_VERSION,
         # --- Idempotency (no duplicates) --------------------------
         enable_idempotence=True,
         acks="all",

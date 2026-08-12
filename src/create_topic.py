@@ -27,6 +27,7 @@ from kafka.errors import TopicAlreadyExistsError
 
 from src.config import (
     BOOTSTRAP_SERVERS,
+    KAFKA_API_VERSION,
     NUM_PARTITIONS,
     REPLICATION_FACTOR,
     TOPIC_CONFIGS,
@@ -57,6 +58,7 @@ def create_topic() -> None:
     """Provision the topic on the Kafka cluster (idempotent)."""
     admin: KafkaAdminClient = KafkaAdminClient(
         bootstrap_servers=BOOTSTRAP_SERVERS,
+        api_version=KAFKA_API_VERSION,
         client_id="ride-sharing-admin",
     )
     try:

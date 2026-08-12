@@ -9,10 +9,11 @@ Changing a value here propagates to every module automatically.
 
 # ─── Kafka Cluster ───────────────────────────────────────────
 BOOTSTRAP_SERVERS: list[str] = [
-    "localhost:9092",
-    "localhost:9093",
-    "localhost:9094",
+    "127.0.0.1:9092",
+    "127.0.0.1:9093",
+    "127.0.0.1:9094",
 ]
+KAFKA_API_VERSION: tuple[int, int, int] = (2, 8, 1)
 
 # ─── Topic Settings ──────────────────────────────────────────
 TOPIC_NAME: str = "ride_trips"

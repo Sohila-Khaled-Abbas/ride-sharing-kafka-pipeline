@@ -37,6 +37,7 @@ from src.config import (
     AUTO_COMMIT_INTERVAL_MS,
     BOOTSTRAP_SERVERS,
     CONSUMER_GROUP_ID,
+    KAFKA_API_VERSION,
     TOPIC_NAME,
 )
 
@@ -61,6 +62,7 @@ def create_consumer() -> KafkaConsumer:
     return KafkaConsumer(
         TOPIC_NAME,
         bootstrap_servers=BOOTSTRAP_SERVERS,
+        api_version=KAFKA_API_VERSION,
         group_id=CONSUMER_GROUP_ID,
         # --- At-Most-Once Semantics -------------------------------
         enable_auto_commit=True,
