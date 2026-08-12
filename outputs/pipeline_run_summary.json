@@ -1,0 +1,77 @@
+{
+  "timestamp": "2026-08-12T21:06:49Z",
+  "status": "SUCCESS",
+  "topic": "ride_trips",
+  "partitions": 6,
+  "replication_factor": 3,
+  "min_insync_replicas": "2",
+  "producer_guarantee": "EXACTLY_ONCE_TO_BROKER (enable_idempotence=True)",
+  "consumer_semantics": "AT_MOST_ONCE (enable_auto_commit=True)",
+  "total_events_processed": 20,
+  "duplicates_detected": 0,
+  "partition_breakdown": {
+    "P0": 7,
+    "P1": 1,
+    "P2": 1,
+    "P3": 3,
+    "P4": 4,
+    "P5": 4
+  },
+  "sample_trips": [
+    {
+      "trip_id": "TRIP-1001",
+      "driver_id": "DRV-42",
+      "passenger_id": "PAS589",
+      "pickup": "Rehab City",
+      "dropoff": "Tagamoa",
+      "distance_km": 16.7,
+      "fare": 118.61,
+      "status": "in_progress",
+      "timestamp": "2026-08-12T21:06:48Z"
+    },
+    {
+      "trip_id": "TRIP-1002",
+      "driver_id": "DRV-34",
+      "passenger_id": "PAS265",
+      "pickup": "Shubra",
+      "dropoff": "6th October",
+      "distance_km": 7.6,
+      "fare": 216.07,
+      "status": "completed",
+      "timestamp": "2026-08-12T21:06:48Z"
+    },
+    {
+      "trip_id": "TRIP-1003",
+      "driver_id": "DRV-85",
+      "passenger_id": "PAS618",
+      "pickup": "Giza",
+      "dropoff": "New Cairo",
+      "distance_km": 21.9,
+      "fare": 211.2,
+      "status": "completed",
+      "timestamp": "2026-08-12T21:06:48Z"
+    },
+    {
+      "trip_id": "TRIP-1004",
+      "driver_id": "DRV-63",
+      "passenger_id": "PAS524",
+      "pickup": "Giza",
+      "dropoff": "Mohandessin",
+      "distance_km": 4.6,
+      "fare": 217.25,
+      "status": "in_progress",
+      "timestamp": "2026-08-12T21:06:48Z"
+    },
+    {
+      "trip_id": "TRIP-1005",
+      "driver_id": "DRV-36",
+      "passenger_id": "PAS960",
+      "pickup": "Sheikh Zayed",
+      "dropoff": "Maadi",
+      "distance_km": 1.7,
+      "fare": 94.69,
+      "status": "cancelled",
+      "timestamp": "2026-08-12T21:06:48Z"
+    }
+  ]
+}

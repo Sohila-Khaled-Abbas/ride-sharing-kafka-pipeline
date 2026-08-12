@@ -2,18 +2,19 @@
 
 # 🚖 Ride-Sharing Real-Time Kafka Pipeline
 
-**Production-grade event streaming pipeline with idempotent production, at-most-once consumption, and high-throughput topic architecture.**
+**Production-grade event streaming pipeline with automated orchestration, idempotent production, at-most-once consumption, and high-throughput topic architecture.**
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-7.3.2-231F20?logo=apachekafka&logoColor=white)](https://kafka.apache.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)](.github/workflows/ci.yml)
 [![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-F37626?logo=jupyter&logoColor=white)](notebooks/ride_sharing_pipeline.ipynb)
 [![Tests](https://img.shields.io/badge/Tests-13%20Passed-44CC11?logo=pytest&logoColor=white)](outputs/test_results.log)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-*A Data Engineering assignment implementing Kafka topic optimization, zero-duplicate production via KIP-98, and controlled consumption semantics on a 3-broker cluster.*
+*A Data Engineering assignment implementing Kafka topic optimization, zero-duplicate production via KIP-98, automated orchestration, and controlled consumption semantics on a 3-broker cluster.*
 
 </div>
 
@@ -23,6 +24,7 @@
 
 - [Overview](#-overview)
 - [System Architecture](#-system-architecture)
+- [Automated One-Command Execution](#-automated-one-command-execution)
 - [Project Structure](#-project-structure)
 - [Requirements](#-requirements)
 - [Quick Start](#-quick-start)
@@ -44,6 +46,7 @@ This repository implements a **fault-tolerant, high-throughput Apache Kafka stre
 
 | Requirement | Implementation | Technical Guarantee | Module |
 |:---|:---|:---|:---:|
+| 🤖 **Automated Orchestration** | 1-command test, provision, produce, consume | End-to-end automated lifecycle | [`src/pipeline_runner.py`](src/pipeline_runner.py) |
 | 🏗️ **Topic & Fake Data** | 6 Partitions, RF=3 across 3 brokers | High I/O parallelism | [`src/create_topic.py`](src/create_topic.py) |
 | 🔒 **Zero Duplicates** | `enable_idempotence=True`, `acks=all` | Broker PID + monotonic sequence dedup | [`src/producer.py`](src/producer.py) |
 | ⚡ **Parallel Consumption** | Consumer group `ride-sharing-group` | Up to 6 simultaneous workers | [`src/consumer.py`](src/consumer.py) |
@@ -72,14 +75,14 @@ flowchart TB
             P2["Partition 2 (Leader)"]
             P5["Partition 5 (Leader)"]
         end
-        ZK["🐘 Apache ZooKeeper<br/>(127.0.0.1:2181)"]
-        UI["🖥️ Kafka UI Dashboard<br/>(http://localhost:9021)"]
+        ZK["🐘 Apache ZooKeeper (127.0.0.1:2181)"]
+        UI["🖥️ Kafka UI Dashboard (http://localhost:9021)"]
     end
 
     subgraph ConsumptionLayer["📊 Consumption Layer (Group: ride-sharing-group)"]
-        C1["Consumer 1<br/>Partitions: P0, P3"]
-        C2["Consumer 2<br/>Partitions: P1, P4"]
-        C3["Consumer 3<br/>Partitions: P2, P5"]
+        C1["Consumer 1 (Partitions: P0, P3)"]
+        C2["Consumer 2 (Partitions: P1, P4)"]
+        C3["Consumer 3 (Partitions: P2, P5)"]
     end
 
     P -->|Key: TRIP-1001| P3
@@ -104,40 +107,81 @@ flowchart TB
 
 ---
 
+## ⚡ Automated One-Command Execution
+
+You can run the **entire pipeline automatically** with a single command:
+
+```bash
+# Python module runner:
+python -m src.pipeline_runner --num-events 20
+
+# Or via Makefile:
+make run
+
+# Or via Windows PowerShell:
+.\scripts\run_pipeline.ps1
+
+# Or via Linux / macOS Bash:
+./scripts/run_pipeline.sh
+```
+
+### Automation Execution Workflow
+
+```mermaid
+flowchart LR
+    A["1. Unit Tests<br/>(13/13 Pass)"] --> B["2. Provision Topic<br/>(6 Partitions, RF=3)"]
+    B --> C["3. Idempotent Ingestion<br/>(PID + SeqNum)"]
+    C --> D["4. At-Most-Once Consumption<br/>(Auto-commit ON)"]
+    D --> E["5. Export Metrics & Artifacts<br/>(outputs/summary.json)"]
+```
+
+---
+
 ## 📁 Project Structure
 
 ```
 ride-sharing-assignment/
 │
 ├── 📄 README.md                      ← Master documentation & architecture guide
+├── 📄 Makefile                        ← One-command build & execution automation
 ├── 📄 LICENSE                         ← MIT Open Source License
 ├── 📄 CONTRIBUTING.md                 ← Development standards & contribution rules
 ├── 📄 CHANGELOG.md                    ← Semantic version release history
 ├── 📄 requirements.txt                ← Pinned Python dependencies
 ├── 📄 .editorconfig                   ← Multi-editor formatting standards
-├── 📄 .gitignore                      ← Python & OS build ignores
+├── 📄 .gitignore                      ← Python, OS & log ignores
+│
+├── 📂 .github/
+│   └── 📂 workflows/
+│       └── 📄 ci.yml                  ← Automated GitHub Actions CI workflow
 │
 ├── 📂 src/                            ← Core Source Code Package
 │   ├── 🐍 __init__.py                 ← Package marker & docstrings
 │   ├── 🐍 config.py                   ← Centralized configuration (Single Source of Truth)
+│   ├── 🐍 pipeline_runner.py          ← Automated end-to-end pipeline orchestrator
 │   ├── 🐍 create_topic.py             ← Idempotent topic provisioning (6 partitions, RF=3)
 │   ├── 🐍 producer.py                 ← Idempotent fake data producer (PID + SeqNum)
 │   └── 🐍 consumer.py                 ← At-most-once consumer (auto-commit before processing)
 │
-├── 📂 notebooks/                      ← Interactive Walkthroughs
+├── 📂 scripts/                        ← Cross-Platform Automation Scripts
+│   ├── 📜 run_pipeline.sh             ← Bash script for Linux/macOS
+│   └── 📜 run_pipeline.ps1            ← PowerShell script for Windows
+│
+├── 📂 notebooks/                      ← Interactive Data Engineering Walkthrough
 │   └── 📓 ride_sharing_pipeline.ipynb ← Executed Jupyter Notebook showing full pipeline run
 │
 ├── 📂 tests/                          ← Automated Test Suite
 │   └── 🐍 test_pipeline.py            ← 13 unit tests for config, schema, & serialization
 │
-├── 📂 outputs/                        ← Live Execution Logs & Sample Payloads
+├── 📂 outputs/                        ← Real Execution Outputs & Verification Logs
+│   ├── 📄 pipeline_run_summary.json   ← End-to-end automated run summary & partition metrics
 │   ├── 📄 sample_trips.json           ← Sample generated ride JSON records
 │   ├── 📄 topic_creation.log          ← Topic provisioning execution log
 │   ├── 📄 producer_execution.log      ← Producer batch ingestion run log
 │   ├── 📄 consumer_execution.log      ← Consumer parallel streaming log
-│   └── 📄 test_results.log            ← Complete unittest execution report (13/13 OK)
+│   └── 📄 test_results.log            ← Complete unittest report (13/13 passed)
 │
-└── 📂 docs/                           ← Deep-Dive Technical Documentation
+└── 📂 docs/                           ← Deep-Dive Technical Documentation Suite
     ├── 📄 architecture.md             ← System architecture & design patterns
     ├── 📄 data_dictionary.md          ← Schema specification & Cairo districts
     ├── 📄 delivery_semantics.md       ← Idempotence vs Transactions vs Auto-Commit
@@ -200,24 +244,17 @@ test_json_roundtrip (tests.test_pipeline.TestSerialization.test_json_roundtrip) 
 test_build_topic_spec (tests.test_pipeline.TestTopicProvisioning.test_build_topic_spec) ... ok
 
 ----------------------------------------------------------------------
-Ran 13 tests in 0.119s
+Ran 13 tests in 0.020s
 
 OK
 ```
 
 </details>
 
-### 4️⃣ Provision Topic, Producer, and Consumer
+### 4️⃣ Execute the Automated Pipeline
 
 ```bash
-# Terminal 1 — Create topic:
-python -m src.create_topic
-
-# Terminal 2 — Start Consumer (At-Most-Once):
-python -m src.consumer
-
-# Terminal 3 — Start Producer (Idempotent):
-python -m src.producer
+python -m src.pipeline_runner --num-events 20
 ```
 
 ---
@@ -304,17 +341,6 @@ KafkaConsumer(
 )
 ```
 
-#### Timeline & Fault Profile
-
-```mermaid
-flowchart LR
-    A["poll() Records<br/>Offsets 0..2"] --> B["auto-commit fires<br/>Offset 3 Committed"]
-    B --> C["Process msg 0, 1..."]
-    C --> D{"Crash?"}
-    D -- No --> E["Batch Done"]
-    D -- Yes --> F["Restart from Offset 3<br/>⚠️ msg 1 & 2 skipped<br/>(Zero duplicates)"]
-```
-
 ---
 
 ## 📦 Message Schema & Data Contract
@@ -345,7 +371,8 @@ The [`outputs/`](outputs/) directory contains verified execution logs and sample
 
 | Output File | Description |
 |:---|:---|
-| [`outputs/sample_trips.json`](outputs/sample_trips.json) | 8 sample JSON ride records formatted to the exact schema |
+| [`outputs/pipeline_run_summary.json`](outputs/pipeline_run_summary.json) | Complete automated run summary with partition metrics & SLAs |
+| [`outputs/sample_trips.json`](outputs/sample_trips.json) | Sample JSON ride records formatted to the exact schema |
 | [`outputs/topic_creation.log`](outputs/topic_creation.log) | Provisioning log for 6 partitions, RF=3, min ISR=2 |
 | [`outputs/producer_execution.log`](outputs/producer_execution.log) | Idempotent producer run log with partition/offset metadata |
 | [`outputs/consumer_execution.log`](outputs/consumer_execution.log) | Consumer stream log across 6 partitions under at-most-once semantics |
