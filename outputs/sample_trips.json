@@ -1,0 +1,90 @@
+[
+  {
+    "trip_id": "TRIP-1001",
+    "driver_id": "DRV-52",
+    "passenger_id": "PAS812",
+    "pickup": "Nasr City",
+    "dropoff": "Maadi",
+    "distance_km": 12.5,
+    "fare": 185.50,
+    "status": "completed",
+    "timestamp": "2026-08-12T20:30:00Z"
+  },
+  {
+    "trip_id": "TRIP-1002",
+    "driver_id": "DRV-18",
+    "passenger_id": "PAS345",
+    "pickup": "Heliopolis",
+    "dropoff": "Downtown",
+    "distance_km": 8.3,
+    "fare": 95.00,
+    "status": "in_progress",
+    "timestamp": "2026-08-12T20:30:01Z"
+  },
+  {
+    "trip_id": "TRIP-1003",
+    "driver_id": "DRV-73",
+    "passenger_id": "PAS901",
+    "pickup": "Zamalek",
+    "dropoff": "6th October",
+    "distance_km": 28.4,
+    "fare": 220.75,
+    "status": "completed",
+    "timestamp": "2026-08-12T20:30:02Z"
+  },
+  {
+    "trip_id": "TRIP-1004",
+    "driver_id": "DRV-09",
+    "passenger_id": "PAS112",
+    "pickup": "New Cairo",
+    "dropoff": "Dokki",
+    "distance_km": 22.1,
+    "fare": 195.00,
+    "status": "completed",
+    "timestamp": "2026-08-12T20:30:03Z"
+  },
+  {
+    "trip_id": "TRIP-1005",
+    "driver_id": "DRV-34",
+    "passenger_id": "PAS678",
+    "pickup": "Mohandessin",
+    "dropoff": "Giza",
+    "distance_km": 6.7,
+    "fare": 75.50,
+    "status": "cancelled",
+    "timestamp": "2026-08-12T20:30:04Z"
+  },
+  {
+    "trip_id": "TRIP-1006",
+    "driver_id": "DRV-88",
+    "passenger_id": "PAS423",
+    "pickup": "Shubra",
+    "dropoff": "Ain Shams",
+    "distance_km": 11.2,
+    "fare": 110.00,
+    "status": "completed",
+    "timestamp": "2026-08-12T20:30:05Z"
+  },
+  {
+    "trip_id": "TRIP-1007",
+    "driver_id": "DRV-61",
+    "passenger_id": "PAS559",
+    "pickup": "Rehab City",
+    "dropoff": "Tagamoa",
+    "distance_km": 9.8,
+    "fare": 130.25,
+    "status": "completed",
+    "timestamp": "2026-08-12T20:30:06Z"
+  },
+  {
+    "trip_id": "TRIP-1008",
+    "driver_id": "DRV-27",
+    "passenger_id": "PAS780",
+    "pickup": "Sheikh Zayed",
+    "dropoff": "Zamalek",
+    "distance_km": 26.0,
+    "fare": 245.00,
+    "status": "in_progress",
+    "timestamp": "2026-08-12T20:30:07Z"
+  }
+]

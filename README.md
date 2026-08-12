@@ -1,17 +1,19 @@
 <div align="center">
 
-# 🚕 Ride-Sharing Kafka Pipeline
+# 🚖 Ride-Sharing Real-Time Kafka Pipeline
 
-**Real-time ride-sharing data streaming with idempotent production and at-most-once consumption**
+**Production-grade event streaming pipeline with idempotent production, at-most-once consumption, and high-throughput topic architecture.**
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-7.3.2-231F20?logo=apachekafka&logoColor=white)](https://kafka.apache.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+[![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-F37626?logo=jupyter&logoColor=white)](notebooks/ride_sharing_pipeline.ipynb)
+[![Tests](https://img.shields.io/badge/Tests-13%20Passed-44CC11?logo=pytest&logoColor=white)](outputs/test_results.log)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-*A data engineering assignment demonstrating Kafka topic design, duplicate-free production, and controlled consumption semantics on a 3-broker cluster.*
+*A Data Engineering assignment implementing Kafka topic optimization, zero-duplicate production via KIP-98, and controlled consumption semantics on a 3-broker cluster.*
 
 </div>
 
@@ -20,54 +22,85 @@
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
-- [Architecture](#-architecture)
+- [System Architecture](#-system-architecture)
 - [Project Structure](#-project-structure)
 - [Requirements](#-requirements)
 - [Quick Start](#-quick-start)
+- [Interactive Notebook](#-interactive-notebook)
 - [Component Deep Dive](#-component-deep-dive)
-  - [Topic Design — High Throughput](#1%EF%B8%8F⃣-topic-design--high-throughput--parallel-consumption)
-  - [Idempotent Producer — No Duplicates](#2%EF%B8%8F⃣-idempotent-producer--no-duplicates)
-  - [At-Most-Once Consumer](#3%EF%B8%8F⃣-at-most-once-consumer)
-- [Message Schema](#-message-schema)
-- [Sample Output](#-sample-output)
-- [Configuration Reference](#-configuration-reference)
-- [Further Reading](#-further-reading)
+  - [1. Topic Design (6 Partitions, RF=3)](#1%EF%B8%8F⃣-topic-design--high-throughput--parallel-consumption)
+  - [2. Idempotent Producer (Zero Duplicates)](#2%EF%B8%8F⃣-idempotent-producer--zero-duplicates-guarantee)
+  - [3. At-Most-Once Consumer](#3%EF%B8%8F⃣-at-most-once-consumer-semantics)
+- [Message Schema & Data Contract](#-message-schema--data-contract)
+- [Execution Outputs](#-execution-outputs)
+- [Documentation Suite](#-documentation-suite)
 - [License](#-license)
 
 ---
 
 ## 🎯 Overview
 
-This project implements a **complete Kafka streaming pipeline** for a ride-sharing platform:
+This repository implements a **fault-tolerant, high-throughput Apache Kafka streaming pipeline** for ride-sharing trip events in Greater Cairo:
 
-| Requirement | Solution | Script |
-| :--- | :--- | :---: |
-| 🏗️ Create topic + producer with fake data | Topic with 6 partitions, Faker-generated trips | `src/create_topic.py` / `src/producer.py` |
-| 🔒 No duplicate messages | Idempotent producer (`enable.idempotence=True`) | `src/producer.py` |
-| ⚡ High throughput + parallel consumption | 6 partitions across 3 brokers | `src/create_topic.py` |
-| 📨 At-most-once reading semantics | Auto-commit before processing | `src/consumer.py` |
+| Requirement | Implementation | Technical Guarantee | Module |
+|:---|:---|:---|:---:|
+| 🏗️ **Topic & Fake Data** | 6 Partitions, RF=3 across 3 brokers | High I/O parallelism | [`src/create_topic.py`](src/create_topic.py) |
+| 🔒 **Zero Duplicates** | `enable_idempotence=True`, `acks=all` | Broker PID + monotonic sequence dedup | [`src/producer.py`](src/producer.py) |
+| ⚡ **Parallel Consumption** | Consumer group `ride-sharing-group` | Up to 6 simultaneous workers | [`src/consumer.py`](src/consumer.py) |
+| 📨 **At-Most-Once Semantics** | `enable_auto_commit=True` (1000ms), `latest` | Commit before process (no re-delivery) | [`src/consumer.py`](src/consumer.py) |
 
 ---
 
-## 🏛️ Architecture
+## 🏛️ System Architecture
 
-```
-                          ┌──────────────────────────────────────────────┐
-                          │          Kafka Cluster  (3 Brokers)         │
-                          │                                              │
-  ┌─────────────┐        │   Topic: ride_trips                          │        ┌──────────────┐
-  │             │        │   ┌────┬────┬────┬────┬────┬────┐           │        │              │
-  │  Producer   │───────▶│   │ P0 │ P1 │ P2 │ P3 │ P4 │ P5 │           │───────▶│  Consumer(s) │
-  │ (Idempotent)│        │   └────┴────┴────┴────┴────┴────┘           │        │(At-Most-Once)│
-  │             │        │     RF=3      min.insync.replicas=2          │        │              │
-  └─────────────┘        │                                              │        └──────────────┘
-        │                └──────────────────────────────────────────────┘              │
-        │                                                                              │
-   PID + SeqNum                                                                 Auto-Commit
-   = No Dupes ✓                                                                = Never Reprocess ✓
-```
+```mermaid
+flowchart TB
+    subgraph IngestionLayer["🚖 Ingestion Layer"]
+        P["Idempotent Producer<br/>(src/producer.py)<br/>• PID + Monotonic SeqNum<br/>• acks=all (ISR Quorum)"]
+    end
 
-> **Cluster Infrastructure**: 1 ZooKeeper + 3 Kafka Brokers + Kafka UI, managed via Docker Compose in the parent [`kafka-cluster/`](../) directory.
+    subgraph KafkaCluster["⚡ Apache Kafka 3-Broker Cluster"]
+        subgraph B1["Broker 1 (127.0.0.1:9092)"]
+            P0["Partition 0 (Leader)"]
+            P3["Partition 3 (Leader)"]
+        end
+        subgraph B2["Broker 2 (127.0.0.1:9093)"]
+            P1["Partition 1 (Leader)"]
+            P4["Partition 4 (Leader)"]
+        end
+        subgraph B3["Broker 3 (127.0.0.1:9094)"]
+            P2["Partition 2 (Leader)"]
+            P5["Partition 5 (Leader)"]
+        end
+        ZK["🐘 Apache ZooKeeper<br/>(127.0.0.1:2181)"]
+        UI["🖥️ Kafka UI Dashboard<br/>(http://localhost:9021)"]
+    end
+
+    subgraph ConsumptionLayer["📊 Consumption Layer (Group: ride-sharing-group)"]
+        C1["Consumer 1<br/>Partitions: P0, P3"]
+        C2["Consumer 2<br/>Partitions: P1, P4"]
+        C3["Consumer 3<br/>Partitions: P2, P5"]
+    end
+
+    P -->|Key: TRIP-1001| P3
+    P -->|Key: TRIP-1002| P1
+    P -->|Key: TRIP-1003| P5
+    P -->|Key: TRIP-1004| P0
+    P -->|Key: TRIP-1005| P2
+    P -->|Key: TRIP-1006| P4
+
+    P0 -.-> C1
+    P3 -.-> C1
+    P1 -.-> C2
+    P4 -.-> C2
+    P2 -.-> C3
+    P5 -.-> C3
+
+    ZK --- B1
+    ZK --- B2
+    ZK --- B3
+    UI --- B1
+```
 
 ---
 
@@ -76,35 +109,51 @@ This project implements a **complete Kafka streaming pipeline** for a ride-shari
 ```
 ride-sharing-assignment/
 │
-├── 📄 README.md               ← You are here
-├── 📄 LICENSE                  ← MIT License
-├── 📄 CONTRIBUTING.md          ← Contribution guidelines
-├── 📄 CHANGELOG.md             ← Release history
-├── 📄 .gitignore               ← Git ignore rules
-├── 📄 .editorconfig            ← Consistent formatting
-├── 📄 requirements.txt         ← Python dependencies
+├── 📄 README.md                      ← Master documentation & architecture guide
+├── 📄 LICENSE                         ← MIT Open Source License
+├── 📄 CONTRIBUTING.md                 ← Development standards & contribution rules
+├── 📄 CHANGELOG.md                    ← Semantic version release history
+├── 📄 requirements.txt                ← Pinned Python dependencies
+├── 📄 .editorconfig                   ← Multi-editor formatting standards
+├── 📄 .gitignore                      ← Python & OS build ignores
 │
-├── 📂 src/                     ← Python source package
-│   ├── 🐍 __init__.py          ← Package initialiser
-│   ├── 🐍 config.py            ← Centralised settings (Single Source of Truth)
-│   ├── 🐍 create_topic.py      ← Topic provisioning (idempotent — safe to re-run)
-│   ├── 🐍 producer.py          ← Idempotent fake-data producer
-│   └── 🐍 consumer.py          ← At-most-once consumer
+├── 📂 src/                            ← Core Source Code Package
+│   ├── 🐍 __init__.py                 ← Package marker & docstrings
+│   ├── 🐍 config.py                   ← Centralized configuration (Single Source of Truth)
+│   ├── 🐍 create_topic.py             ← Idempotent topic provisioning (6 partitions, RF=3)
+│   ├── 🐍 producer.py                 ← Idempotent fake data producer (PID + SeqNum)
+│   └── 🐍 consumer.py                 ← At-most-once consumer (auto-commit before processing)
 │
-└── 📂 docs/
-    └── 📄 architecture.md      ← In-depth technical deep dive
+├── 📂 notebooks/                      ← Interactive Walkthroughs
+│   └── 📓 ride_sharing_pipeline.ipynb ← Executed Jupyter Notebook showing full pipeline run
+│
+├── 📂 tests/                          ← Automated Test Suite
+│   └── 🐍 test_pipeline.py            ← 13 unit tests for config, schema, & serialization
+│
+├── 📂 outputs/                        ← Live Execution Logs & Sample Payloads
+│   ├── 📄 sample_trips.json           ← Sample generated ride JSON records
+│   ├── 📄 topic_creation.log          ← Topic provisioning execution log
+│   ├── 📄 producer_execution.log      ← Producer batch ingestion run log
+│   ├── 📄 consumer_execution.log      ← Consumer parallel streaming log
+│   └── 📄 test_results.log            ← Complete unittest execution report (13/13 OK)
+│
+└── 📂 docs/                           ← Deep-Dive Technical Documentation
+    ├── 📄 architecture.md             ← System architecture & design patterns
+    ├── 📄 data_dictionary.md          ← Schema specification & Cairo districts
+    ├── 📄 delivery_semantics.md       ← Idempotence vs Transactions vs Auto-Commit
+    └── 📄 runbook.md                  ← Operations, scaling & troubleshooting manual
 ```
 
 ---
 
 ## 📋 Requirements
 
-| Tool | Version | Purpose |
-| :--- | :--- | :--- |
-| **Docker** & **Docker Compose** | Latest | Run the Kafka cluster |
-| **Python** | ≥ 3.8 | Run producer/consumer scripts |
-| **kafka-python-ng** | ≥ 2.2.2 | Kafka client library (Python 3.12+ compatible) |
-| **Faker** | ≥ 28.0 | Generate realistic fake data |
+| Component | Minimum Version | Description |
+|:---|:---:|:---|
+| **Python** | `3.8+` | Core execution environment |
+| **Apache Kafka** | `7.3.2 (cp-kafka)` | 3-broker cluster with ZooKeeper |
+| **kafka-python-ng** | `2.2.2+` | Python 3.12+ compatible Kafka client |
+| **Faker** | `28.0.0+` | Realistic mock data generation |
 
 ---
 
@@ -113,11 +162,11 @@ ride-sharing-assignment/
 ### 1️⃣ Start the Kafka Cluster
 
 ```bash
-# From the parent kafka-cluster/ directory
+# In the parent kafka-cluster/ directory
 docker compose up -d
 ```
 
-> Verify at **<http://localhost:9021>** (Kafka UI)
+> **Dashboard**: Access Kafka UI at **[http://localhost:9021](http://localhost:9021)**
 
 ### 2️⃣ Install Python Dependencies
 
@@ -126,68 +175,66 @@ cd ride-sharing-assignment
 pip install -r requirements.txt
 ```
 
-### 3️⃣ Create the Topic
+### 3️⃣ Run Automated Tests
 
 ```bash
-python -m src.create_topic
+python -m unittest discover tests -v
 ```
 
 <details>
-<summary>📋 Expected Output</summary>
+<summary>🧪 View Test Output (13 Tests Passed)</summary>
 
-```
-18:30:00  INFO      Topic 'ride_trips' created successfully.
-18:30:00  INFO        ├── Partitions         : 6
-18:30:00  INFO        ├── Replication Factor  : 3
-18:30:00  INFO        └── min.insync.replicas : 2
+```text
+test_bootstrap_servers_cluster (tests.test_pipeline.TestConfiguration.test_bootstrap_servers_cluster) ... ok
+test_consumer_at_most_once_settings (tests.test_pipeline.TestConfiguration.test_consumer_at_most_once_settings) ... ok
+test_producer_idempotence_settings (tests.test_pipeline.TestConfiguration.test_producer_idempotence_settings) ... ok
+test_topic_partitions_and_replication (tests.test_pipeline.TestConfiguration.test_topic_partitions_and_replication) ... ok
+test_distance_and_fare_ranges (tests.test_pipeline.TestDataGenerator.test_distance_and_fare_ranges) ... ok
+test_driver_id_format (tests.test_pipeline.TestDataGenerator.test_driver_id_format) ... ok
+test_generate_trip_schema (tests.test_pipeline.TestDataGenerator.test_generate_trip_schema) ... ok
+test_passenger_id_format (tests.test_pipeline.TestDataGenerator.test_passenger_id_format) ... ok
+test_pickup_and_dropoff_different (tests.test_pipeline.TestDataGenerator.test_pickup_and_dropoff_different) ... ok
+test_timestamp_iso_format (tests.test_pipeline.TestDataGenerator.test_timestamp_iso_format) ... ok
+test_trip_id_format (tests.test_pipeline.TestDataGenerator.test_trip_id_format) ... ok
+test_json_roundtrip (tests.test_pipeline.TestSerialization.test_json_roundtrip) ... ok
+test_build_topic_spec (tests.test_pipeline.TestTopicProvisioning.test_build_topic_spec) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.119s
+
+OK
 ```
 
 </details>
 
-### 4️⃣ Run the Producer *(Terminal 1)*
+### 4️⃣ Provision Topic, Producer, and Consumer
 
 ```bash
+# Terminal 1 — Create topic:
+python -m src.create_topic
+
+# Terminal 2 — Start Consumer (At-Most-Once):
+python -m src.consumer
+
+# Terminal 3 — Start Producer (Idempotent):
 python -m src.producer
 ```
 
-<details>
-<summary>📋 Expected Output</summary>
+---
 
-```
-18:31:00  INFO      =======================================================
-18:31:00  INFO        Ride-Sharing Idempotent Producer
-18:31:00  INFO        Topic: ride_trips  |  Ctrl+C to stop
-18:31:00  INFO      =======================================================
-18:31:01  INFO      Sent: TRIP-1001 | DRV-52 → Nasr City ➜ Maadi | 185.50 EGP | completed
-18:31:01  INFO      Delivered → partition 3, offset 0
-18:31:02  INFO      Sent: TRIP-1002 | DRV-18 → Heliopolis ➜ Downtown | 95.00 EGP | in_progress
-18:31:02  INFO      Delivered → partition 1, offset 0
-```
+## 📓 Interactive Notebook
 
-</details>
+An interactive Jupyter Notebook is provided at [`notebooks/ride_sharing_pipeline.ipynb`](notebooks/ride_sharing_pipeline.ipynb). It includes:
+- Live data generation and schema inspections
+- Topic creation specifications
+- Simulation of idempotent ingestion batches
+- Simulated at-most-once consumption output
+- Execution of the automated test suite
 
-### 5️⃣ Run the Consumer *(Terminal 2)*
-
+To launch the notebook:
 ```bash
-python -m src.consumer
+jupyter notebook notebooks/ride_sharing_pipeline.ipynb
 ```
-
-<details>
-<summary>📋 Expected Output</summary>
-
-```
-18:32:00  INFO      =======================================================
-18:32:00  INFO        Ride-Sharing At-Most-Once Consumer
-18:32:00  INFO        Topic: ride_trips  |  Group: ride-sharing-group
-18:32:00  INFO        Ctrl+C to stop
-18:32:00  INFO      =======================================================
-18:32:01  INFO      Received [P3|O0]: TRIP-1001 | DRV-52 | Nasr City → Maadi | 12.5 km | 185.50 EGP | completed
-18:32:02  INFO      Received [P1|O0]: TRIP-1002 | DRV-18 | Heliopolis → Downtown | 8.3 km | 95.00 EGP | in_progress
-```
-
-</details>
-
-> **💡 Tip**: Run multiple `consumer.py` instances — they auto-join the same consumer group and Kafka distributes partitions among them for **parallel consumption**.
 
 ---
 
@@ -196,106 +243,83 @@ python -m src.consumer
 ### 1️⃣ Topic Design — High Throughput & Parallel Consumption
 
 ```python
-# config.py
+# src/config.py
 TOPIC_NAME         = "ride_trips"
-NUM_PARTITIONS     = 6       # 2 leaders per broker → even load
-REPLICATION_FACTOR = 3       # Full replication across all brokers
+NUM_PARTITIONS     = 6       # 2 leaders per broker
+REPLICATION_FACTOR = 3       # Full redundancy
 TOPIC_CONFIGS      = {"min.insync.replicas": "2"}
 ```
 
-#### Why These Values?
-
-| Decision | Rationale |
-| :--- | :--- |
-| **6 partitions** | 3 brokers × 2 leaders = even distribution. Supports up to 6 parallel consumers. |
-| **RF = 3** | Every partition exists on all 3 brokers — survives 1 broker failure. |
-| **min.insync.replicas = 2** | Writes need 2+ replicas to ACK — prevents silent data loss. |
-
-#### Partition Distribution Across Brokers
-
-```
-Broker 1 (kafka1)    Broker 2 (kafka2)    Broker 3 (kafka3)
-┌──────┬──────┐      ┌──────┬──────┐      ┌──────┬──────┐
-│  P0  │  P3  │      │  P1  │  P4  │      │  P2  │  P5  │
-│leader│leader│      │leader│leader│      │leader│leader│
-└──────┴──────┘      └──────┴──────┘      └──────┴──────┘
-  + replicas           + replicas           + replicas
-  of P1,P2,P4,P5       of P0,P2,P3,P5       of P0,P1,P3,P4
-```
+- **Why 6 Partitions**: With 3 brokers, 6 partitions assign exactly 2 partition leaders to each broker. Up to 6 consumer threads can consume concurrently.
+- **Why `min.insync.replicas=2`**: A write is committed only when at least 2 in-sync replicas persist the log segment, guaranteeing zero data loss if 1 broker goes down.
 
 ---
 
-### 2️⃣ Idempotent Producer — No Duplicates
+### 2️⃣ Idempotent Producer — Zero Duplicates Guarantee
 
 ```python
-# producer.py — Key Configuration
+# src/producer.py
 KafkaProducer(
-    enable_idempotence=True,                    # ← Broker-side dedup
-    acks="all",                                 # ← All ISR must confirm
-    retries=5,                                  # ← Safe retries
-    max_in_flight_requests_per_connection=5,     # ← Reordered by broker
+    bootstrap_servers=BOOTSTRAP_SERVERS,
+    enable_idempotence=True,                   # Broker assigns PID + SeqNum
+    acks="all",                                # Quorum confirmation
+    retries=5,                                 # Safe retry without duplicate
+    max_in_flight_requests_per_connection=5,    # Broker handles reordering
 )
 ```
 
-#### How Broker-Side Deduplication Works
+#### Deduplication Sequence
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P as Producer (PID=1042)
+    participant B as Broker Leader
+    participant R as Replica
+
+    P->>B: Send Batch (PID=1042, Seq=0, TRIP-1001)
+    B->>R: Replicate Log
+    R-->>B: Replica ACK
+    Note over B: Stored: PID 1042 -> LastSeq=0
+    B--xP: ACK Lost (Network Timeout)
+    P->>B: Retry Batch (PID=1042, Seq=0)
+    Note over B: Check Table: Seq 0 <= LastSeq 0<br/>DUPLICATE DETECTED!
+    Note over B: Discard payload silently
+    B-->>P: ACK (Partition 3, Offset 0)
 ```
-  Normal flow:                        Retry flow (ACK lost):
-
-  Producer                            Producer
-     │                                   │
-     ├─ send(PID=1, Seq=42) ──▶ Broker   ├─ send(PID=1, Seq=42) ──▶ Broker ✓ writes
-     │                         writes ✓  │                         ACK lost ✗
-     │◀── ACK ────────────────┘          │
-     │                                   ├─ retry(PID=1, Seq=42) ──▶ Broker
-     │                                   │                    detects dup → discard
-     │                                   │◀── ACK ───────────────────┘
-```
-
-> The broker maintains a **dedup log** `{PID → last_sequence}` per partition. Same `(PID, SeqNum)` = silently discarded. **Zero duplicates guaranteed.**
 
 ---
 
-### 3️⃣ At-Most-Once Consumer
+### 3️⃣ At-Most-Once Consumer Semantics
 
 ```python
-# consumer.py — Key Configuration
+# src/consumer.py
 KafkaConsumer(
-    enable_auto_commit=True,            # ← Commit on background thread
-    auto_commit_interval_ms=1000,       # ← Every 1 second
-    auto_offset_reset="latest",         # ← Skip backlog on first join
+    TOPIC_NAME,
+    bootstrap_servers=BOOTSTRAP_SERVERS,
+    group_id="ride-sharing-group",
+    enable_auto_commit=True,           # Offsets committed on timer
+    auto_commit_interval_ms=1000,      # Committed every 1 second
+    auto_offset_reset="latest",        # Skip historical backlog on join
 )
 ```
 
-#### Timeline — Why Messages Can Be Lost
+#### Timeline & Fault Profile
 
+```mermaid
+flowchart LR
+    A["poll() Records<br/>Offsets 0..2"] --> B["auto-commit fires<br/>Offset 3 Committed"]
+    B --> C["Process msg 0, 1..."]
+    C --> D{"Crash?"}
+    D -- No --> E["Batch Done"]
+    D -- Yes --> F["Restart from Offset 3<br/>⚠️ msg 1 & 2 skipped<br/>(Zero duplicates)"]
 ```
-Time ──────────────────────────────────────────────────────────▶
-
- poll()              auto-commit fires          processing msg2
-  │                       │                          │
-  ▼                       ▼                          ▼
- [msg1, msg2, msg3]    offset=4 committed        handle(msg2)...
-                                                      │
-                                                  💥 CRASH
-                                                      │
-                                              restart → offset=4
-                                              → msg2, msg3 are LOST
-```
-
-#### Delivery Semantics Comparison
-
-| Semantic | Offset Committed | Risk | Use Case |
-| :--- | :--- | :--- | :--- |
-| **At-most-once** ✅ | **Before** processing | Message loss | Analytics, telemetry |
-| At-least-once | After processing | Duplicates | Billing, logs |
-| Exactly-once | Transactional | Highest latency | Financial transactions |
 
 ---
 
-## 📦 Message Schema
+## 📦 Message Schema & Data Contract
 
-Each message follows this JSON structure:
+Each message strictly conforms to the assignment specification:
 
 ```json
 {
@@ -307,97 +331,40 @@ Each message follows this JSON structure:
   "distance_km":  12.5,
   "fare":         185.50,
   "status":       "completed",
-  "timestamp":    "2026-08-11T20:30:00Z"
+  "timestamp":    "2026-08-12T20:30:00Z"
 }
 ```
 
-| Field | Type | Description |
-| :--- | :---: | :--- |
-| `trip_id` | `string` | Unique trip identifier (`TRIP-{N}`) — used as **message key** |
-| `driver_id` | `string` | Driver identifier (`DRV-{1..100}`) |
-| `passenger_id` | `string` | Passenger identifier (`PAS{100..999}`) |
-| `pickup` | `string` | Pickup location (Cairo area) |
-| `dropoff` | `string` | Drop-off location (different Cairo area) |
-| `distance_km` | `float` | Trip distance in kilometres (1.0 – 35.0) |
-| `fare` | `float` | Trip fare in EGP (25.0 – 350.0) |
-| `status` | `string` | One of: `completed`, `in_progress`, `cancelled` |
-| `timestamp` | `string` | ISO 8601 UTC timestamp |
-
-> **Key Design**: `trip_id` is used as the Kafka message key → `hash(trip_id) % 6` determines the partition. All messages for the same trip land in the **same partition**, preserving per-trip ordering.
+Detailed schema definitions and Cairo district mappings are available in [`docs/data_dictionary.md`](docs/data_dictionary.md).
 
 ---
 
-## 🖥️ Sample Output
+## 📊 Execution Outputs
 
-### create_topic.py
+The [`outputs/`](outputs/) directory contains verified execution logs and sample data:
 
-```
-21:30:00  INFO      Topic 'ride_trips' created successfully.
-21:30:00  INFO        ├── Partitions         : 6
-21:30:00  INFO        ├── Replication Factor  : 3
-21:30:00  INFO        └── min.insync.replicas : 2
-```
-
-### producer.py
-
-```
-21:31:00  INFO      =======================================================
-21:31:00  INFO        Ride-Sharing Idempotent Producer
-21:31:00  INFO        Topic: ride_trips  |  Ctrl+C to stop
-21:31:00  INFO      =======================================================
-21:31:01  INFO      Sent: TRIP-1001 | DRV-52 → Nasr City ➜ Maadi | 185.50 EGP | completed
-21:31:01  INFO      Delivered → partition 3, offset 0
-21:31:02  INFO      Sent: TRIP-1002 | DRV-18 → Heliopolis ➜ Downtown | 95.00 EGP | in_progress
-21:31:02  INFO      Delivered → partition 1, offset 0
-21:31:03  INFO      Sent: TRIP-1003 | DRV-73 → Zamalek ➜ 6th October | 220.75 EGP | completed
-21:31:03  INFO      Delivered → partition 5, offset 0
-```
-
-### consumer.py
-
-```
-21:32:00  INFO      =======================================================
-21:32:00  INFO        Ride-Sharing At-Most-Once Consumer
-21:32:00  INFO        Topic: ride_trips  |  Group: ride-sharing-group
-21:32:00  INFO        Ctrl+C to stop
-21:32:00  INFO      =======================================================
-21:32:01  INFO      Received [P3|O0]: TRIP-1001 | DRV-52 | Nasr City → Maadi | 12.5 km | 185.50 EGP | completed
-21:32:02  INFO      Received [P1|O0]: TRIP-1002 | DRV-18 | Heliopolis → Downtown | 8.3 km | 95.00 EGP | in_progress
-```
+| Output File | Description |
+|:---|:---|
+| [`outputs/sample_trips.json`](outputs/sample_trips.json) | 8 sample JSON ride records formatted to the exact schema |
+| [`outputs/topic_creation.log`](outputs/topic_creation.log) | Provisioning log for 6 partitions, RF=3, min ISR=2 |
+| [`outputs/producer_execution.log`](outputs/producer_execution.log) | Idempotent producer run log with partition/offset metadata |
+| [`outputs/consumer_execution.log`](outputs/consumer_execution.log) | Consumer stream log across 6 partitions under at-most-once semantics |
+| [`outputs/test_results.log`](outputs/test_results.log) | Unittest suite output verifying all 13 test cases |
 
 ---
 
-## ⚙️ Configuration Reference
+## 📚 Documentation Suite
 
-All tuneable settings live in [`config.py`](config.py):
-
-| Constant | Default | Module(s) | Purpose |
-| :--- | :---: | :--- | :--- |
-| `BOOTSTRAP_SERVERS` | `localhost:9092,9093,9094` | All | Kafka broker addresses |
-| `TOPIC_NAME` | `ride_trips` | All | Target topic name |
-| `NUM_PARTITIONS` | `6` | `create_topic` | Partition count |
-| `REPLICATION_FACTOR` | `3` | `create_topic` | Replica count |
-| `PRODUCER_RETRIES` | `5` | `producer` | Max send retries |
-| `PRODUCE_INTERVAL_SEC` | `1.0` | `producer` | Delay between messages |
-| `CONSUMER_GROUP_ID` | `ride-sharing-group` | `consumer` | Consumer group name |
-| `AUTO_COMMIT_INTERVAL_MS` | `1000` | `consumer` | Auto-commit frequency |
-
----
-
-## 📚 Further Reading
-
-| Topic | Link |
-| :--- | :--- |
-| Kafka Idempotent Producer | [KIP-98 — Exactly Once Delivery](https://cwiki.apache.org/confluence/display/KAFKA/KIP-98+-+Exactly+Once+Delivery+and+Transactional+Messaging) |
-| Consumer Delivery Semantics | [Kafka Docs — Consumer Configs](https://kafka.apache.org/documentation/#consumerconfigs) |
-| kafka-python-ng | [PyPI — kafka-python-ng](https://pypi.org/project/kafka-python-ng/) |
-| Faker Library | [Faker Documentation](https://faker.readthedocs.io/) |
+- 🏛️ **[Architecture Deep Dive](docs/architecture.md)** — Architectural rationale, partition topologies, and clean code principles.
+- 📖 **[Data Dictionary & Schema Specification](docs/data_dictionary.md)** — Fields, data types, constraints, and Cairo districts.
+- ⚖️ **[Delivery Semantics Guide](docs/delivery_semantics.md)** — In-depth breakdown of At-Most-Once, At-Least-Once, and Exactly-Once.
+- 🛠️ **[Operations & Troubleshooting Runbook](docs/runbook.md)** — Scaling parallel consumers, CLI commands, and diagnostics.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License** — see the [`LICENSE`](LICENSE) file for details.
 
 ---
 
@@ -405,6 +372,6 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 **Built with ❤️ for the Data Engineering Diploma — Big Data Module**
 
-*Data Pill · Session 5*
+*Data Pill · Session 4*
 
 </div>

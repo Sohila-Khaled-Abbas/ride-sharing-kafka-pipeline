@@ -1,186 +1,159 @@
-# Architecture — Deep Dive
+# 🏛️ Architecture & System Design Deep Dive
 
-This document provides an in-depth technical explanation of every design
-decision in the ride-sharing Kafka pipeline.
-
----
-
-## 1. System Overview
-
-```
- ┌─────────────────────────────────────────────────────────────────────┐
- │                        Kafka Cluster (3 Brokers)                   │
- │  ┌───────────┐    ┌───────────┐    ┌───────────┐                   │
- │  │  Broker 1  │    │  Broker 2  │    │  Broker 3  │                  │
- │  │ kafka1:9092│    │ kafka2:9093│    │ kafka3:9094│                  │
- │  └───────────┘    └───────────┘    └───────────┘                   │
- │         │                │                │                         │
- │         └────────────────┼────────────────┘                         │
- │                          │                                          │
- │              Topic: ride_trips                                      │
- │              6 Partitions × RF 3                                    │
- └──────────────────────────┬──────────────────────────────────────────┘
-                            │
-              ┌─────────────┴─────────────┐
-              │                           │
-     ┌────────▼────────┐        ┌─────────▼────────┐
-     │    Producer      │        │    Consumer(s)    │
-     │  (Idempotent)    │        │  (At-Most-Once)   │
-     │  PID + SeqNum    │        │  Auto-Commit ON   │
-     └─────────────────┘        └──────────────────┘
-```
+This document provides an in-depth technical explanation of every architectural decision, data flow, and failure-handling model in the **Ride-Sharing Kafka Pipeline**.
 
 ---
 
-## 2. Topic Design
+## 1. End-to-End System Architecture
 
-### 2.1 Partition Count — Why 6?
+```mermaid
+flowchart TB
+    subgraph ClientLayer["🚖 Ingestion Layer"]
+        P["Idempotent Producer<br/>(src/producer.py)<br/>• enable_idempotence=True<br/>• acks=all<br/>• PID + Monotonic SeqNum"]
+    end
 
-| Factor                  | Detail                                       |
-|-------------------------|----------------------------------------------|
-| Broker count            | 3 brokers in the cluster                     |
-| Leaders per broker      | 6 ÷ 3 = **2 leaders each** (even load)      |
-| Max parallel consumers  | Up to **6** in one consumer group            |
-| Overhead                | Low — 6 is conservative; production may use 12–36 |
+    subgraph KafkaCluster["⚡ Apache Kafka 3-Broker Cluster (Docker Network: itvdelabnw)"]
+        subgraph Broker1["Broker 1 (kafka1:9092)"]
+            B1_P0["Partition 0 (Leader)"]
+            B1_P3["Partition 3 (Leader)"]
+            B1_R1["Partition 1 (Replica)"]
+            B1_R2["Partition 2 (Replica)"]
+        end
 
-Each partition is an **ordered, immutable log**. More partitions mean more
-I/O parallelism on the broker side and more consumer threads on the
-application side.
+        subgraph Broker2["Broker 2 (kafka2:9093)"]
+            B2_P1["Partition 1 (Leader)"]
+            B2_P4["Partition 4 (Leader)"]
+            B2_R0["Partition 0 (Replica)"]
+            B2_R3["Partition 3 (Replica)"]
+        end
 
-### 2.2 Replication Factor — Why 3?
+        subgraph Broker3["Broker 3 (kafka3:9094)"]
+            B3_P2["Partition 2 (Leader)"]
+            B3_P5["Partition 5 (Leader)"]
+            B3_R4["Partition 4 (Replica)"]
+            B3_R5["Partition 5 (Replica)"]
+        end
 
-With RF = 3, every partition has **3 replicas** (1 leader + 2 followers).
-Combined with `min.insync.replicas = 2`:
+        ZK["🐘 Apache ZooKeeper (zoo1:2181)<br/>Cluster Metadata & Consensus"]
+        UI["🖥️ Kafka UI (localhost:9021)<br/>Cluster Observability Dashboard"]
+    end
 
-- A write succeeds only when **≥ 2 replicas** persist it.
-- The cluster tolerates **1 broker failure** without data loss.
-- If 2 brokers fail simultaneously, writes are rejected (not silently lost).
+    subgraph ConsumerLayer["📊 Consumption Layer (Group: ride-sharing-group)"]
+        C1["Consumer Instance 1<br/>• Partitions: P0, P3<br/>• At-Most-Once Auto-Commit"]
+        C2["Consumer Instance 2<br/>• Partitions: P1, P4<br/>• At-Most-Once Auto-Commit"]
+        C3["Consumer Instance 3<br/>• Partitions: P2, P5<br/>• At-Most-Once Auto-Commit"]
+    end
 
-### 2.3 Partition Assignment
+    P -->|Key: trip_id (hash % 6)| B1_P0
+    P -->|Key: trip_id (hash % 6)| B2_P1
+    P -->|Key: trip_id (hash % 6)| B3_P2
+    P -->|Key: trip_id (hash % 6)| B1_P3
+    P -->|Key: trip_id (hash % 6)| B2_P4
+    P -->|Key: trip_id (hash % 6)| B3_P5
 
-The producer keys messages by `trip_id`. Kafka hashes the key to determine
-the target partition:
+    B1_P0 -.->|Fetch Data| C1
+    B1_P3 -.->|Fetch Data| C1
+    B2_P1 -.->|Fetch Data| C2
+    B2_P4 -.->|Fetch Data| C2
+    B3_P2 -.->|Fetch Data| C3
+    B3_P5 -.->|Fetch Data| C3
 
+    ZK --- Broker1
+    ZK --- Broker2
+    ZK --- Broker3
+    UI --- Broker1
 ```
-partition = hash(trip_id) % num_partitions
-```
-
-This guarantees that **all messages for the same trip always land in the
-same partition**, preserving per-trip ordering.
 
 ---
 
-## 3. Idempotent Producer — Exactly-Once to the Broker
+## 2. Topic Design Rationale
 
-### 3.1 The Duplicate Problem
+### 2.1 Partition Topology & Load Distribution
 
-Without idempotency, duplicates occur when:
-
-```
-Producer ──send──▶ Broker (writes message)
-                       │
-              ACK lost in network ✗
-                       │
-Producer ──retry──▶ Broker (writes AGAIN) ← DUPLICATE
-```
-
-### 3.2 How Idempotency Solves It
-
-When `enable.idempotence = true`:
-
-1. Broker assigns the producer a unique **Producer ID (PID)**.
-2. Each message batch carries a **monotonic sequence number**.
-3. Broker maintains a **dedup log**: `{PID → last_sequence_per_partition}`.
-4. On retry, the broker sees `(PID=1, Seq=42)` already exists → **discards**.
-
-```
-Producer ──send(PID=1, Seq=42)──▶ Broker ✓ writes
-                                       │
-                              ACK lost ✗
-                                       │
-Producer ──retry(PID=1, Seq=42)──▶ Broker detects dup → discards → ACK
+```mermaid
+gantt
+    title Partition Leader Distribution (6 Partitions across 3 Brokers)
+    dateFormat  X
+    axisFormat %s
+    section Broker 1
+    Partition 0 (Leader) :0, 10
+    Partition 3 (Leader) :0, 10
+    section Broker 2
+    Partition 1 (Leader) :0, 10
+    Partition 4 (Leader) :0, 10
+    section Broker 3
+    Partition 2 (Leader) :0, 10
+    Partition 5 (Leader) :0, 10
 ```
 
-### 3.3 Required Settings
-
-| Setting              | Value   | Why Required                                  |
-|----------------------|---------|-----------------------------------------------|
-| `enable_idempotence` | `True`  | Activates PID + SeqNum tracking               |
-| `acks`               | `"all"` | Mandatory for idempotency (Kafka enforces)     |
-| `max_in_flight`      | `≤ 5`   | Broker can reorder up to 5 in-flight batches   |
-| `retries`            | `> 0`   | Must allow retries for dedup to be meaningful  |
+| Dimension | Configured Value | Engineering Rationale |
+|:---|:---:|:---|
+| **Partitions** | `6` | 3 brokers × 2 leaders per broker ensures uniform write/read distribution. Allows scaling up to 6 parallel consumers. |
+| **Replication Factor** | `3` | Full redundancy across all brokers in the cluster. Every partition has 1 leader and 2 in-sync followers. |
+| **`min.insync.replicas`** | `2` | Guarantees that at least 2 brokers acknowledge any append before returning success, preventing data loss on single broker crash. |
 
 ---
 
-## 4. At-Most-Once Consumer
+## 3. Idempotent Producer — Zero Duplicates Protocol
 
-### 4.1 Semantics Comparison
+```mermaid
+sequenceDiagram
+    autonumber
+    box rgb(30, 40, 60) Client
+    participant P as KafkaProducer (PID=1042)
+    end
+    box rgb(20, 50, 40) Kafka Cluster
+    participant B as Broker Leader (Partition 3)
+    participant R as In-Sync Replica
+    end
 
-| Semantic         | Offset Commit                | Risk              |
-|------------------|------------------------------|--------------------|
-| At-most-once     | **Before** processing        | Message loss       |
-| At-least-once    | **After** processing         | Duplicate processing |
-| Exactly-once     | Transactional (read+process) | Highest latency    |
+    Note over P: Batch 1: Key=TRIP-1001, Seq=0
+    P->>B: PRODUCE (PID=1042, Epoch=0, Seq=0, Data)
+    B->>R: Replicate Log Segment
+    R-->>B: In-Sync Acknowledgment
+    Note over B: Appended to Log at Offset 0.<br/>Update PID Table: 1042 -> LastSeq=0
+    B-->>P: ACK (Partition=3, Offset=0)
 
-### 4.2 How Auto-Commit Creates At-Most-Once
-
+    Note over P: Network Glitch drops subsequent ACK!
+    P->>B: RETRY Batch (PID=1042, Epoch=0, Seq=0)
+    Note over B: Check PID Table:<br/>Seq 0 <= LastSeq 0<br/>DUPLICATE DETECTED!
+    Note over B: Discard payload silently (No append)
+    B-->>P: ACK (Partition=3, Offset=0)
+    Note over P: Producer receives ACK: Zero duplicate records!
 ```
- Time ──────────────────────────────────────────────▶
-
- poll()          auto-commit fires       processing
-  │                    │                     │
-  ▼                    ▼                     ▼
- [msg1, msg2, msg3]   offset=4 committed   handle(msg2)...
-                                                │
-                                            💥 CRASH
-                                                │
-                                           restart → offset=4
-                                           → msg2, msg3 LOST
-```
-
-The key insight: `auto_commit_interval_ms = 1000` means offsets are
-committed on a **background timer**, not gated by application processing.
-
-### 4.3 Consumer Group & Partition Assignment
-
-All consumers sharing `group_id = "ride-sharing-group"` form a
-**consumer group**. Kafka's Group Coordinator assigns partitions:
-
-| Consumers in group | Partitions per consumer |
-|--------------------|-------------------------|
-| 1                  | 6 (all partitions)      |
-| 2                  | 3 each                  |
-| 3                  | 2 each                  |
-| 6                  | 1 each (maximum parallelism) |
-| 7+                 | 1 idle consumer (no partition) |
 
 ---
 
-## 5. Code Architecture
+## 4. At-Most-Once Consumption Mechanics
 
-```
-ride-sharing-assignment/
-│
-├── config.py            Single source of truth for all settings
-│                        (SRP — no magic numbers in code)
-│
-├── create_topic.py      Topic provisioning (idempotent — safe to re-run)
-│                        Uses KafkaAdminClient
-│
-├── producer.py          Fake data generation + idempotent delivery
-│                        generate_trip() → KafkaProducer.send()
-│
-└── consumer.py          Message polling + at-most-once consumption
-                         KafkaConsumer iterator → handle_message()
+```mermaid
+flowchart LR
+    A["1. poll() Batch<br/>Offsets [0, 1, 2]"] --> B["2. Auto-Commit Offset 3<br/>(Background Interval: 1000ms)"]
+    B --> C["3. Application Processing<br/>Process msg 0, msg 1..."]
+    C --> D{"Crash Occurs?"}
+    D -- "No Crash" --> E["4. Batch Completed Successfully"]
+    D -- "Crash at msg 1" --> F["5. Consumer Restarts<br/>Polls from committed offset 3<br/>⚠️ msg 1 & 2 skipped (Zero duplicates)"]
 ```
 
-### Design Principles Applied
+---
 
-| Principle                    | Where Applied                                |
-|------------------------------|----------------------------------------------|
-| **Single Responsibility**    | Each module does one thing                   |
-| **DRY**                      | All settings in `config.py`                  |
-| **Separation of Concerns**   | Config / topic / produce / consume are independent |
-| **Fail Fast**                | `sys.exit(1)` on unrecoverable errors        |
-| **Logging over Printing**    | `logging` module with timestamps everywhere  |
-| **Type Hints**               | All function signatures are typed             |
+## 5. Software Engineering Clean Code Principles Applied
+
+```mermaid
+mindmap
+  root((Clean Architecture))
+    Single Responsibility
+      config.py (Parameters)
+      create_topic.py (DDL Provisioning)
+      producer.py (Ingestion)
+      consumer.py (Consumption)
+    Fault Tolerance
+      Idempotent PID Deduplication
+      Quorum ACKs (min.insync.replicas=2)
+      Automatic Rebalancing
+    Clean Code
+      Type Hints throughout
+      Standard logging module
+      Zero Magic Numbers
+      unittest automated test suite
+```
