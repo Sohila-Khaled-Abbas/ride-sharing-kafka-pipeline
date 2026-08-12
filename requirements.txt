@@ -1,0 +1,8 @@
+# ──────────────────────────────────────────────
+# Ride-Sharing Kafka Assignment — Dependencies
+# ──────────────────────────────────────────────
+# Install:  pip install -r requirements.txt
+# ──────────────────────────────────────────────
+
+kafka-python-ng>=2.2.2      # Kafka client (Python 3.12+ compatible fork)
+Faker>=28.0.0               # Fake data generation

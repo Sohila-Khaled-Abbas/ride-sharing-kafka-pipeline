@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────────
+#  Ride-Sharing Kafka Assignment — .gitignore
+# ─────────────────────────────────────────────────
+
+# ─── Python ──────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+
+# ─── Virtual Environments ────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ─── IDE / Editor ────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ─── OS Artifacts ────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ─── Environment Variables ───────────────────────
+.env
+.env.local
+.env.*.local
+
+# ─── Logs ────────────────────────────────────────
+*.log
+logs/
+
+# ─── Misc ────────────────────────────────────────
+*.bak
+*.tmp
+*.temp
