@@ -1,0 +1,26 @@
+2026-08-12 20:30:01,002  INFO      =======================================================
+2026-08-12 20:30:01,003  INFO        Ride-Sharing Idempotent Producer
+2026-08-12 20:30:01,004  INFO        Topic: ride_trips  |  Ctrl+C to stop
+2026-08-12 20:30:01,005  INFO        Idempotence: ENABLED (enable_idempotence=True)
+2026-08-12 20:30:01,006  INFO        Guarantees: acks=all, retries=5, max_in_flight=5
+2026-08-12 20:30:01,007  INFO      =======================================================
+2026-08-12 20:30:01,050  INFO      Producer assigned PID=1042, epoch=0 by Kafka Cluster Coordinator
+2026-08-12 20:30:01,110  INFO      Sent: TRIP-1001 | DRV-52 → Nasr City ➜ Maadi | 185.50 EGP | completed
+2026-08-12 20:30:01,125  INFO      Delivered → partition 3, offset 0 (key=TRIP-1001, PID=1042, Seq=0)
+2026-08-12 20:30:02,130  INFO      Sent: TRIP-1002 | DRV-18 → Heliopolis ➜ Downtown | 95.00 EGP | in_progress
+2026-08-12 20:30:02,142  INFO      Delivered → partition 1, offset 0 (key=TRIP-1002, PID=1042, Seq=1)
+2026-08-12 20:30:03,145  INFO      Sent: TRIP-1003 | DRV-73 → Zamalek ➜ 6th October | 220.75 EGP | completed
+2026-08-12 20:30:03,158  INFO      Delivered → partition 5, offset 0 (key=TRIP-1003, PID=1042, Seq=2)
+2026-08-12 20:30:04,160  INFO      Sent: TRIP-1004 | DRV-09 → New Cairo ➜ Dokki | 195.00 EGP | completed
+2026-08-12 20:30:04,171  INFO      Delivered → partition 0, offset 0 (key=TRIP-1004, PID=1042, Seq=3)
+2026-08-12 20:30:05,175  INFO      Sent: TRIP-1005 | DRV-34 → Mohandessin ➜ Giza | 75.50 EGP | cancelled
+2026-08-12 20:30:05,188  INFO      Delivered → partition 2, offset 0 (key=TRIP-1005, PID=1042, Seq=4)
+2026-08-12 20:30:06,190  INFO      Sent: TRIP-1006 | DRV-88 → Shubra ➜ Ain Shams | 110.00 EGP | completed
+2026-08-12 20:30:06,203  INFO      Delivered → partition 4, offset 0 (key=TRIP-1006, PID=1042, Seq=5)
+2026-08-12 20:30:07,205  INFO      Sent: TRIP-1007 | DRV-61 → Rehab City ➜ Tagamoa | 130.25 EGP | completed
+2026-08-12 20:30:07,219  INFO      Delivered → partition 3, offset 1 (key=TRIP-1007, PID=1042, Seq=6)
+2026-08-12 20:30:08,222  INFO      Sent: TRIP-1008 | DRV-27 → Sheikh Zayed ➜ Zamalek | 245.00 EGP | in_progress
+2026-08-12 20:30:08,235  INFO      Delivered → partition 1, offset 1 (key=TRIP-1008, PID=1042, Seq=7)
+2026-08-12 20:30:09,240  INFO      Interrupted by user.
+2026-08-12 20:30:09,350  INFO      Flushing remaining in-flight batches...
+2026-08-12 20:30:09,355  INFO      Producer shut down cleanly. Total messages sent: 8. Zero duplicates.

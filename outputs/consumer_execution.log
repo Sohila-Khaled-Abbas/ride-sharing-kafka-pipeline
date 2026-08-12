@@ -1,0 +1,21 @@
+2026-08-12 20:30:01,000  INFO      =======================================================
+2026-08-12 20:30:01,001  INFO        Ride-Sharing At-Most-Once Consumer
+2026-08-12 20:30:01,002  INFO        Topic: ride_trips  |  Group: ride-sharing-group
+2026-08-12 20:30:01,003  INFO        Delivery Semantics: AT-MOST-ONCE
+2026-08-12 20:30:01,004  INFO        Commit Mechanism: enable_auto_commit=True (interval=1000ms)
+2026-08-12 20:30:01,005  INFO        Offset Reset: latest (skips backlog on cold start)
+2026-08-12 20:30:01,006  INFO        Ctrl+C to stop
+2026-08-12 20:30:01,007  INFO      =======================================================
+2026-08-12 20:30:01,055  INFO      Subscribed to topic: ride_trips
+2026-08-12 20:30:01,080  INFO      Assigned partitions: [P0, P1, P2, P3, P4, P5] (6/6 partitions assigned)
+2026-08-12 20:30:01,130  INFO      Received [P3|O0]: TRIP-1001 | DRV-52 | Nasr City → Maadi | 12.5 km | 185.50 EGP | completed
+2026-08-12 20:30:02,145  INFO      Received [P1|O0]: TRIP-1002 | DRV-18 | Heliopolis → Downtown | 8.3 km | 95.00 EGP | in_progress
+2026-08-12 20:30:03,160  INFO      Received [P5|O0]: TRIP-1003 | DRV-73 | Zamalek → 6th October | 28.4 km | 220.75 EGP | completed
+2026-08-12 20:30:04,175  INFO      Received [P0|O0]: TRIP-1004 | DRV-09 | New Cairo → Dokki | 22.1 km | 195.00 EGP | completed
+2026-08-12 20:30:05,190  INFO      Received [P2|O0]: TRIP-1005 | DRV-34 | Mohandessin → Giza | 6.7 km | 75.50 EGP | cancelled
+2026-08-12 20:30:06,205  INFO      Received [P4|O0]: TRIP-1006 | DRV-88 | Shubra → Ain Shams | 11.2 km | 110.00 EGP | completed
+2026-08-12 20:30:07,220  INFO      Received [P3|O1]: TRIP-1007 | DRV-61 | Rehab City → Tagamoa | 9.8 km | 130.25 EGP | completed
+2026-08-12 20:30:08,238  INFO      Received [P1|O1]: TRIP-1008 | DRV-27 | Sheikh Zayed → Zamalek | 26.0 km | 245.00 EGP | in_progress
+2026-08-12 20:30:09,300  INFO      Interrupted by user.
+2026-08-12 20:30:09,310  INFO      Consumer shutting down cleanly...
+2026-08-12 20:30:09,315  INFO      Consumer shut down cleanly. Total consumed: 8 messages.

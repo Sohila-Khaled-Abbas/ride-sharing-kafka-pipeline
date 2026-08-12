@@ -1,0 +1,12 @@
+2026-08-12 20:30:00,105  INFO      Connecting to Kafka bootstrap brokers: ['127.0.0.1:9092', '127.0.0.1:9093', '127.0.0.1:9094']
+2026-08-12 20:30:00,420  INFO      Kafka cluster version handshake: (2, 8, 1) established
+2026-08-12 20:30:00,530  INFO      Preparing topic creation request: NewTopic(name='ride_trips', num_partitions=6, replication_factor=3, topic_configs={'min.insync.replicas': '2'})
+2026-08-12 20:30:00,812  INFO      Topic 'ride_trips' created successfully.
+2026-08-12 20:30:00,813  INFO        ├── Partitions         : 6 (P0, P1, P2, P3, P4, P5)
+2026-08-12 20:30:00,814  INFO        ├── Replication Factor  : 3 (Full cluster replication)
+2026-08-12 20:30:00,815  INFO        └── min.insync.replicas : 2 (At least 2 ISR confirmations per write)
+2026-08-12 20:30:00,816  INFO      Partition distribution across brokers:
+2026-08-12 20:30:00,817  INFO        ├── Broker 1 (kafka1:9092): Leaders [P0, P3], Replicas [P1, P2, P4, P5]
+2026-08-12 20:30:00,818  INFO        ├── Broker 2 (kafka2:9093): Leaders [P1, P4], Replicas [P0, P2, P3, P5]
+2026-08-12 20:30:00,819  INFO        └── Broker 3 (kafka3:9094): Leaders [P2, P5], Replicas [P0, P1, P3, P4]
+2026-08-12 20:30:00,820  INFO      KafkaAdminClient session closed cleanly.

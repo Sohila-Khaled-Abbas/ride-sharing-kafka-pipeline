@@ -1,0 +1,18 @@
+test_bootstrap_servers_cluster (test_pipeline.TestConfiguration.test_bootstrap_servers_cluster) ... ok
+test_consumer_at_most_once_settings (test_pipeline.TestConfiguration.test_consumer_at_most_once_settings) ... ok
+test_producer_idempotence_settings (test_pipeline.TestConfiguration.test_producer_idempotence_settings) ... ok
+test_topic_partitions_and_replication (test_pipeline.TestConfiguration.test_topic_partitions_and_replication) ... ok
+test_distance_and_fare_ranges (test_pipeline.TestDataGenerator.test_distance_and_fare_ranges) ... ok
+test_driver_id_format (test_pipeline.TestDataGenerator.test_driver_id_format) ... ok
+test_generate_trip_schema (test_pipeline.TestDataGenerator.test_generate_trip_schema) ... ok
+test_passenger_id_format (test_pipeline.TestDataGenerator.test_passenger_id_format) ... ok
+test_pickup_and_dropoff_different (test_pipeline.TestDataGenerator.test_pickup_and_dropoff_different) ... ok
+test_timestamp_iso_format (test_pipeline.TestDataGenerator.test_timestamp_iso_format) ... ok
+test_trip_id_format (test_pipeline.TestDataGenerator.test_trip_id_format) ... ok
+test_json_roundtrip (test_pipeline.TestSerialization.test_json_roundtrip) ... ok
+test_build_topic_spec (test_pipeline.TestTopicProvisioning.test_build_topic_spec) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.119s
+
+OK
